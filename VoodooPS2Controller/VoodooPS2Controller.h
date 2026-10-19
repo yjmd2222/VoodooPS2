@@ -310,7 +310,9 @@ private:
   void resetController(void);
   bool setMuxMode(bool);
   void flushDataPort(void);
-  void resetDevices(void);
+  bool resetDevices(void);
+  bool probeAuxiliaryDevices(UInt8 command);
+  void retryAuxiliaryInLegacyMode(void);
     
   static void interruptHandlerMouse(OSObject*, void* refCon, IOService*, int);
   static void interruptHandlerKeyboard(OSObject*, void* refCon, IOService*, int);

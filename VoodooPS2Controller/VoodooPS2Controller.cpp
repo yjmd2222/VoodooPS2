@@ -423,30 +423,63 @@ void ApplePS2Controller::resetController()
 
 // -- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void ApplePS2Controller::resetDevices()
+bool ApplePS2Controller::resetDevices()
 {
     // Reset keyboard
     writeDataPort(kDP_SetDefaultsAndDisable);
     readDataPort(kPS2KbdIdx);       // (discard acknowledge; success irrelevant)
   
-    if (!_muxPresent)
+    return probeAuxiliaryDevices(kDP_SetDefaultsAndDisable);
+}
+
+// Returns true if at least one auxiliary device acknowledges the command.
+// This runs before any nubs are published during startup; wakeup only uses
+// resetDevices(), and does not change the routing of already attached drivers.
+bool ApplePS2Controller::probeAuxiliaryDevices(UInt8 command)
+{
+    if (_kbdOnly)
+        return false;
+
+    bool responded = false;
+    const size_t ports = _muxPresent ? PS2_MUX_PORTS : 1;
+    for (size_t i = 0; i < ports; i++)
     {
-        // Reset aux device
-        if(!_kbdOnly){
-            writeCommandPort(kCP_TransmitToMouse);
-            writeDataPort(kDP_SetDefaultsAndDisable);
-            readDataPort(kPS2AuxIdx);          // (discard acknowledge; success irrelevant)
+        writeCommandPort(_muxPresent ? kCP_TransmitToMuxedMouse + i : kCP_TransmitToMouse);
+        writeDataPort(command);
+        if (readDataPort(kPS2AuxIdx + i) == kSC_Acknowledge)
+        {
+            responded = true;
+            // With ps2rst=0, use Get ID instead of resetting the devices.
+            // Consume its ID byte so it cannot be mistaken for another ACK.
+            if (command == kDP_GetId)
+                readDataPort(kPS2AuxIdx + i);
         }
+    }
+    return responded;
+}
+
+void ApplePS2Controller::retryAuxiliaryInLegacyMode()
+{
+    IOLog("%s: mux handshake succeeded but no auxiliary device acknowledged; retrying legacy mode\n", getName());
+    flushDataPort();
+    if (!setMuxMode(false))
+    {
+        // Do not claim legacy routing unless the controller acknowledges it.
+        IOLog("%s: mux disable failed; attempting to restore mux mode\n", getName());
+        const bool restored = setMuxMode(true);
+        IOLog("%s: mux restore %s\n", getName(), restored ? "succeeded" : "failed");
+        flushDataPort();
         return;
     }
-    
-    // Reset all muxed devices
-    for (size_t i = 0; i < PS2_MUX_PORTS; i++)
-    {
-        writeCommandPort(kCP_TransmitToMuxedMouse + i);
-        writeDataPort(kDP_SetDefaultsAndDisable);
-        readDataPort(kPS2AuxIdx + i);        // (discard acknowledge; success irrelevant)
-    }
+
+    _muxPresent = false;
+    _nubsCount = kPS2AuxMaxIdx;
+    const UInt8 command = (_resetControllerFlag & RESET_CONTROLLER_ON_BOOT)
+        ? kDP_SetDefaultsAndDisable : kDP_GetId;
+    const bool responded = probeAuxiliaryDevices(command);
+    flushDataPort();
+    IOLog("%s: legacy auxiliary probe %s; using %lu device nubs\n", getName(),
+          responded ? "acknowledged" : "did not acknowledge", (unsigned long)_nubsCount);
 }
 
 // -- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -561,8 +594,16 @@ bool ApplePS2Controller::start(IOService * provider)
   //
   
   if (_resetControllerFlag & RESET_CONTROLLER_ON_BOOT) {
-    resetDevices();
+    const bool responded = resetDevices();
     flushDataPort();
+    if (_muxPresent && !responded)
+      retryAuxiliaryInLegacyMode();
+  } else if (_muxPresent) {
+    // Still verify the mux's device path when resets are explicitly disabled.
+    const bool responded = probeAuxiliaryDevices(kDP_GetId);
+    flushDataPort();
+    if (!responded)
+      retryAuxiliaryInLegacyMode();
   }
   
   //

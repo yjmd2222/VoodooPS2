@@ -124,7 +124,7 @@ int main() {
         for (size_t i=1;i<=4;++i) {c.response(i,0xfa);c.response(i,0xfa);}
         c.startup(); c.complete(); assert(c._muxPresent && c.muxChanges.empty());
     }
-    { // Handshake-failed/ps2nomux paths remain legacy without another toggle.
+    { // Handshake-failed paths remain legacy without another toggle.
         ApplePS2Controller c; c._muxPresent=false; c._nubsCount=2;
         c.response(0,0xfa); c.response(1,0xfa); c.startup(); c.complete();
         assert((c.routes==std::vector<UInt8>{0xd4}) && c.muxChanges.empty());

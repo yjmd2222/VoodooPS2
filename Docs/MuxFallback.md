@@ -13,8 +13,7 @@ There is no retry loop if legacy probing also fails.
 
 With startup reset disabled (`ps2rst` without its boot-reset bit), the check
 uses F2 (Get ID) instead, consuming the ID byte after an ACK. It does not reset
-the keyboard or auxiliary devices in that case. `ps2nomux` still skips mux
-negotiation entirely, and `ps2kbdonly` sends no auxiliary probes.
+the keyboard or auxiliary devices in that case. `ps2kbdonly` sends no auxiliary probes.
 
 If disabling mux cannot be confirmed, the controller attempts to restore mux
 mode and logs the outcome. It does not silently assume legacy routing.
@@ -40,7 +39,7 @@ I/O. Tests cover command routing, ACK handling, ID-byte consumption, bounded
 retries, disable/restoration failure and manual boot-argument modes.
 
 To exercise automatic fallback on the Samsung, boot a build containing this
-change without `ps2nomux=1`. Capture the controller log and IORegistry; expect
+change. Capture the controller log and IORegistry; expect
 `mux handshake succeeded but no auxiliary device acknowledged; retrying legacy
 mode` and `legacy auxiliary probe acknowledged; using 2 device nubs` if this
-failure occurs. A boot with `ps2nomux=1` only tests the existing manual override.
+failure occurs.

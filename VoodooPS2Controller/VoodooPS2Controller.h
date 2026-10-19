@@ -286,7 +286,6 @@ private:
 
   int                      _resetControllerFlag {RESET_CONTROLLER_ON_BOOT | RESET_CONTROLLER_ON_WAKEUP};
   bool                     _kbdOnly {0};
-  bool                     _noMux {false};
 
   virtual PS2InterruptResult _dispatchDriverInterrupt(size_t port, UInt8 data);
   virtual void dispatchDriverInterrupt(size_t port, UInt8 data);

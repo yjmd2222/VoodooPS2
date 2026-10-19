@@ -521,6 +521,7 @@ bool ApplePS2Controller::start(IOService * provider)
 #endif //DEBUGGER_SUPPORT
 
   PE_parse_boot_argn("ps2kbdonly", &_kbdOnly, sizeof(_kbdOnly));
+  PE_parse_boot_argn("ps2nomux", &_noMux, sizeof(_noMux));
 
   //
   // Reset and clean the 8042 keyboard/mouse controller.
@@ -539,9 +540,19 @@ bool ApplePS2Controller::start(IOService * provider)
   if (_kbdOnly) {
     _muxPresent = false;
     _nubsCount = 1;
+  } else if (_noMux) {
+    // ps2nomux boot-arg: never enable "Active PS/2 Multiplexing". On some laptop embedded
+    // controllers the multiplexer handshake succeeds inconsistently; with it enabled four Aux
+    // nubs are created and every read from an empty port times out. Use the single legacy
+    // Aux port (the same two-nub layout used when no multiplexer is found).
+    _muxPresent = false;
+    _nubsCount = kPS2AuxMaxIdx;
+    IOLog("%s: ps2nomux set, PS/2 multiplexer not enabled\n", getName());
   } else {
     _muxPresent = setMuxMode(true);
     _nubsCount = _muxPresent ? kPS2MuxMaxIdx : kPS2AuxMaxIdx;
+    IOLog("%s: PS/2 multiplexer %s, %lu device nubs\n", getName(),
+          _muxPresent ? "present" : "not present", (unsigned long)_nubsCount);
   }
   
   //

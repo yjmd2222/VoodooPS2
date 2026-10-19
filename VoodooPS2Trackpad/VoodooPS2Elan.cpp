@@ -332,6 +332,10 @@ void ApplePS2Elan::setParamPropertiesGated(OSDictionary *config) {
         {"TrackpointScrollDividerY",           &_trackpointScrollDividerX},
         {"TrackpointScrollDividerY",           &_trackpointScrollDividerY},
         {"MouseResolution",                    &_mouseResolution},
+        {"MinLogicalXOverride",                &minXOverride},
+        {"MinLogicalYOverride",                &minYOverride},
+        {"MaxLogicalXOverride",                &maxXOverride},
+        {"MaxLogicalYOverride",                &maxYOverride},
         {"MouseSampleRate",                    &_mouseSampleRate},
         {"ForceTouchMode",                     (int*)&_forceTouchMode},
     };
@@ -980,6 +984,16 @@ int ApplePS2Elan::elantechQueryInfo() {
             break;
     }
 
+    // apply logical range overrides from RMCF/Info.plist
+    if (minXOverride != -1)
+        info.x_min = minXOverride;
+    if (minYOverride != -1)
+        info.y_min = minYOverride;
+    if (maxXOverride != -1)
+        info.x_max = maxXOverride;
+    if (maxYOverride != -1)
+        info.y_max = maxYOverride;
+
     // check if device has buttonpad
     info.is_buttonpad = (info.fw_version & 0x001000) != 0;
 
@@ -1468,12 +1482,13 @@ int ApplePS2Elan::elantechPacketCheckV4() {
 void ApplePS2Elan::elantechRescale(unsigned int x, unsigned int y) {
     bool needs_update = false;
 
-    if (x > info.x_max) {
+    // an explicit override fixes that axis, do not grow it from touch data
+    if (maxXOverride == -1 && x > info.x_max) {
         info.x_max = x;
         needs_update = true;
     }
 
-    if (y > info.y_max) {
+    if (maxYOverride == -1 && y > info.y_max) {
         info.y_max = y;
         needs_update = true;
     }

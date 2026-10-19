@@ -256,6 +256,9 @@ private:
     int _trackpointScrollDividerX {120};
     int _trackpointScrollDividerY {120};
 
+    // logical range overrides from RMCF (same keys as the Synaptics and ALPS drivers); -1 = not set
+    int minXOverride {-1}, minYOverride {-1}, maxXOverride {-1}, maxYOverride {-1};
+
     int _mouseResolution {0x3};
     int _mouseSampleRate {200};
 

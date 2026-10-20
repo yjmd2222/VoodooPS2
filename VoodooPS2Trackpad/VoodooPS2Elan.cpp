@@ -402,8 +402,19 @@ void ApplePS2Elan::setParamPropertiesGated(OSDictionary *config) {
     if (attachedHIDPointerDevices && attachedHIDPointerDevices->getCount() > 0) {
         ignoreall = usb_mouse_stops_trackpad;
     }
-    
+
+    // "TouchpadEnabled" (boolean) switches the touchpad off/on from user space, e.g.
+    // IORegistryEntrySetCFProperty(service, CFSTR("TouchpadEnabled"), kCFBooleanFalse)
+    OSBoolean *touchpadEnabled = OSDynamicCast(OSBoolean, config->getObject("TouchpadEnabled"));
+    if (touchpadEnabled)
+        ignoreall = !touchpadEnabled->isTrue();
+    publishTouchpadEnabled();
+
     setTrackpointProperties();
+}
+
+void ApplePS2Elan::publishTouchpadEnabled() {
+    setProperty("TouchpadEnabled", ignoreall ? kOSBooleanFalse : kOSBooleanTrue);
 }
 
 IOReturn ApplePS2Elan::setProperties(OSObject *props) {
@@ -459,6 +470,7 @@ IOReturn ApplePS2Elan::message(UInt32 type, IOService* provider, void* argument)
         {
             bool enable = *((bool*)argument);
             ignoreall = !enable;
+            publishTouchpadEnabled();
             break;
         }
 
@@ -471,6 +483,7 @@ IOReturn ApplePS2Elan::message(UInt32 type, IOService* provider, void* argument)
                 IOSleep(wakedelay);
 
                 ignoreall = false;
+                publishTouchpadEnabled();
                 _packetByteCount = 0;
                 _ringBuffer.reset();
 
@@ -625,6 +638,7 @@ void ApplePS2Elan::notificationHIDAttachedHandlerGated(IOService *newService, IO
         if (usb_mouse_stops_trackpad && attachedHIDPointerDevices->getCount() > 0) {
             // One or more USB or Bluetooth pointer devices attached, disable trackpad
             ignoreall = true;
+            publishTouchpadEnabled();
         }
     }
 
@@ -632,6 +646,7 @@ void ApplePS2Elan::notificationHIDAttachedHandlerGated(IOService *newService, IO
         if (usb_mouse_stops_trackpad && attachedHIDPointerDevices->getCount() == 0) {
             // No USB or bluetooth pointer devices attached, re-enable trackpad
             ignoreall = false;
+            publishTouchpadEnabled();
         }
     }
 }

@@ -290,6 +290,7 @@ private:
     bool handleIsOpen(const IOService *forClient) const override;
 
     void setParamPropertiesGated(OSDictionary *dict);
+    void publishTouchpadEnabled();
     void injectVersionDependentProperties(OSDictionary *dict);
     void setTrackpointProperties();
 
